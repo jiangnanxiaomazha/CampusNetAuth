@@ -207,6 +207,7 @@ if (Test-Path $VersionFile) {
 }
 $UpdateUrl = "https://fastly.jsdelivr.net/gh/jiangnanxiaomazha/CampusNetAuth@main/version.json"
 function Check-Update {
+    $lblUpdateDot.Visible = $false
     Write-UI "正在检查更新..."
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     try {
@@ -240,6 +241,18 @@ function Check-Update {
         }
     } catch {
         Write-UI "检查更新失败：$($_.Exception.Message)"
+    }
+}
+
+function Check-Update-Silent {
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $ts = Get-Date -Format "yyyyMMddHHmmss"
+        $json = Invoke-RestMethod -Uri ($UpdateUrl + "?t=" + $ts) -TimeoutSec 8 -UseBasicParsing
+        $latest = [int]$json.versionCode
+        return ($latest -gt $script:LocalVersion)
+    } catch {
+        return $false
     }
 }
 
@@ -325,7 +338,8 @@ $grpOther.Size = New-Object System.Drawing.Size(580, 66)
 $btnWifi = New-Object System.Windows.Forms.Button; $btnWifi.Text = "开启WiFi自动连接"; $btnWifi.Location = New-Object System.Drawing.Point(15, 24); $btnWifi.Size = New-Object System.Drawing.Size(150, 30)
 $btnUninstall = New-Object System.Windows.Forms.Button; $btnUninstall.Text = "卸载全部"; $btnUninstall.Location = New-Object System.Drawing.Point(175, 24); $btnUninstall.Size = New-Object System.Drawing.Size(120, 30)
 $btnUpdate = New-Object System.Windows.Forms.Button; $btnUpdate.Text = "检查更新"; $btnUpdate.Location = New-Object System.Drawing.Point(305, 24); $btnUpdate.Size = New-Object System.Drawing.Size(120, 30)
-$grpOther.Controls.AddRange(@($btnWifi,$btnUninstall,$btnUpdate))
+$lblUpdateDot = New-Object System.Windows.Forms.Label; $lblUpdateDot.Location = New-Object System.Drawing.Point(415, 20); $lblUpdateDot.Size = New-Object System.Drawing.Size(10, 10); $lblUpdateDot.BackColor = [System.Drawing.Color]::Red; $lblUpdateDot.Visible = $false; $lblUpdateDot.BringToFront()
+$grpOther.Controls.AddRange(@($btnWifi,$btnUninstall,$btnUpdate,$lblUpdateDot))
 
 # --- 日志区 ---
 $lblLogTitle = New-Object System.Windows.Forms.Label; $lblLogTitle.Text = "运行信息："; $lblLogTitle.Location = New-Object System.Drawing.Point(12, 546)
@@ -353,6 +367,12 @@ Load-AutoLoginState
 Write-UI "欢迎使用校园网自动认证配置工具"
 Write-UI "1. 填写校园网配置后点击【保存校园网配置】"
 Write-UI "2. 需要开机免输密码就勾选上方选项并点击【应用自动登录设置】（首次需点一次【是】）"
+
+$form.Add_Shown({
+    # 启动时静默检查更新，有新版本显示红点
+    $hasUpdate = Check-Update-Silent
+    if ($hasUpdate) { $lblUpdateDot.Visible = $true }
+})
 
 if ($SmokeTest) {
     $form.Add_Shown({ $form.Close() })

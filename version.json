@@ -1,6 +1,6 @@
 {
-    "versionCode": 6,
-    "versionName": "1.5",
-    "changelog": "改用fastly CDN节点",
+    "versionCode": 7,
+    "versionName": "1.6",
+    "changelog": "启动自动检查更新，有新版本按钮显示红点",
     "files": ["campus_auth.ps1", "config_gui.ps1"]
 }
