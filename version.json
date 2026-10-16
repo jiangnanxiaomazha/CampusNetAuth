@@ -1,6 +1,6 @@
 {
-    "versionCode": 5,
-    "versionName": "1.4",
-    "changelog": "CDN请求加时间戳绕过缓存",
+    "versionCode": 6,
+    "versionName": "1.5",
+    "changelog": "改用fastly CDN节点",
     "files": ["campus_auth.ps1", "config_gui.ps1"]
 }
