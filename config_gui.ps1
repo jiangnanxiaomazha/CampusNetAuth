@@ -199,7 +199,12 @@ function Uninstall-All {
 }
 
 # ================= 检查更新 =================
-$script:LocalVersion = 1
+$VersionFile = Join-Path $scriptDir "version.txt"
+if (Test-Path $VersionFile) {
+    $script:LocalVersion = [int](Get-Content $VersionFile -Raw)
+} else {
+    $script:LocalVersion = 1
+}
 $UpdateUrl = "https://cdn.jsdelivr.net/gh/jiangnanxiaomazha/CampusNetAuth@main/version.json"
 
 function Check-Update {
@@ -229,6 +234,7 @@ function Check-Update {
         }
         if ($updated -gt 0) {
             $script:LocalVersion = $latest
+            Set-Content -Path $VersionFile -Value $latest -Encoding UTF8 -NoNewline
             Write-UI "更新完成（$updated 个文件），请重启配置工具以生效"
             [System.Windows.Forms.MessageBox]::Show("更新完成，请重启配置工具以生效。", "更新成功", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
         }

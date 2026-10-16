@@ -1,6 +1,6 @@
 {
-    "versionCode": 2,
-    "versionName": "1.1",
-    "changelog": "修复界面按钮重叠问题",
+    "versionCode": 3,
+    "versionName": "1.2",
+    "changelog": "修复version.json BOM头，版本号持久化",
     "files": ["campus_auth.ps1", "config_gui.ps1"]
 }
