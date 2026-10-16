@@ -1,6 +1,6 @@
 {
-    "versionCode": 7,
-    "versionName": "1.6",
-    "changelog": "启动自动检查更新，有新版本按钮显示红点",
-    "files": ["campus_auth.ps1", "config_gui.ps1"]
+    "versionCode": 8,
+    "versionName": "1.7",
+    "changelog": "应用图标改为WiFi样式",
+    "files": ["campus_auth.ps1", "config_gui.ps1", "campus_auth.exe", "校园网自动认证配置工具.exe"]
 }
