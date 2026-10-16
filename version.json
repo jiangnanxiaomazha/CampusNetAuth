@@ -1,6 +1,6 @@
 {
-    "versionCode": 9,
-    "versionName": "1.8",
-    "changelog": "统一exe为中文名称",
-    "files": ["campus_auth.ps1", "config_gui.ps1", "校园网自动认证.exe", "校园网自动认证配置工具.exe"]
+    "versionCode": 10,
+    "versionName": "1.9",
+    "changelog": "后台程序改回英文名默认图标",
+    "files": ["campus_auth.ps1", "config_gui.ps1", "campus_auth.exe", "校园网自动认证配置工具.exe"]
 }
