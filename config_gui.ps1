@@ -205,7 +205,7 @@ if (Test-Path $VersionFile) {
 } else {
     $script:LocalVersion = 1
 }
-$UpdateUrl = "https://cdn.jsdelivr.net/gh/jiangnanxiaomazha/CampusNetAuth@main/version.json"
+$UpdateUrl = "https://gcore.jsdelivr.net/gh/jiangnanxiaomazha/CampusNetAuth@main/version.json"
 
 function Check-Update {
     Write-UI "正在检查更新..."
@@ -220,7 +220,7 @@ function Check-Update {
         }
         Write-UI "发现新版本！更新内容：$($json.changelog)"
         Write-UI "开始下载更新文件..."
-        $baseUrl = "https://cdn.jsdelivr.net/gh/jiangnanxiaomazha/CampusNetAuth@main/"
+        $baseUrl = "https://gcore.jsdelivr.net/gh/jiangnanxiaomazha/CampusNetAuth@main/"
         $updated = 0
         foreach ($f in $json.files) {
             try {
