@@ -1,6 +1,6 @@
 ﻿{
-  "versionCode": 3,
-  "versionName": "1.2",
+  "versionCode": 4,
+  "versionName": "1.3",
   "apkUrl": "https://raw.githubusercontent.com/jiangnanxiaomazha/CampusNetAuth/main/CampusNetAuth-debug.apk",
-  "changelog": "1. 更新地址写死在代码里，用户无需填写\n2. 修复WiFi检测问题"
+  "changelog": "1. 扫描不到WiFi时直接弹系统连接框，点一下就连\n2. 不再需要手动去设置里找WiFi"
 }

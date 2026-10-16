@@ -1,4 +1,4 @@
-#Fri Oct 16 20:41:46 CST 2026
+#Fri Oct 16 21:06:56 CST 2026
 base.2=D\:\\Android\\CampusNetAuth\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\2\\classes.dex
 path.2=2/classes.dex
 base.1=D\:\\Android\\CampusNetAuth\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\0\\classes.dex

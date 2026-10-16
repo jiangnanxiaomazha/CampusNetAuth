@@ -206,19 +206,20 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (target.isEmpty()) {
-            appendLog("未扫描到 " + ssid + "（Android 12+ 需开启位置权限和GPS）");
-            appendLog("请手动连接 " + ssid + "，APP 将自动检测...");
-            // 轮询等待用户手动连接，最多30秒
+            appendLog("未扫描到 " + ssid + "，直接弹出系统连接框...");
+            // 直接弹系统连接框，用户点一下连接即可
+            connectWifiAndroid10(ssid, null);
+            // 同时轮询检测（用户手动连了也能检测到）
             for (int i = 0; i < 15; i++) {
                 try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
                 String cur = getCurrentSsid();
                 if (cur != null && cur.replace("\"", "").startsWith(ssid)) {
-                    appendLog("检测到已手动连接：" + cur + "（频段：" + getCurrentBand() + "）");
+                    appendLog("检测到已连接：" + cur + "（频段：" + getCurrentBand() + "）");
                     return;
                 }
-                if (i % 3 == 2) appendLog("等待手动连接中...（" + (i*2) + "秒）");
+                if (i % 3 == 2) appendLog("等待连接中...（" + (i*2) + "秒）");
             }
-            appendLog("超时未检测到连接，请手动连接 " + ssid + " 后重新点击连接");
+            appendLog("超时未连接成功，请检查WiFi名称后重试");
             return;
         }
 
@@ -307,10 +308,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void connectWifiAndroid10(String ssid, String bssid) {
         try {
-            WifiNetworkSpecifier specifier = new WifiNetworkSpecifier.Builder()
-                    .setSsid(ssid)
-                    .setBssid(android.net.MacAddress.fromString(bssid))
-                    .build();
+            WifiNetworkSpecifier.Builder builder = new WifiNetworkSpecifier.Builder()
+                    .setSsid(ssid);
+            if (bssid != null && !bssid.isEmpty()) {
+                builder.setBssid(android.net.MacAddress.fromString(bssid));
+            }
+            WifiNetworkSpecifier specifier = builder.build();
 
             NetworkRequest request = new NetworkRequest.Builder()
                     .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
