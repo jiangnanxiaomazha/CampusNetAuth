@@ -307,7 +307,7 @@ $lblWinHint = New-Object System.Windows.Forms.Label; $lblWinHint.Text = "提示�
 
 $grpWin.Controls.AddRange(@($chkAutoLogin,$lblWinUser,$txtWinUser,$lblWinPass,$txtWinPass,$lblWinHint))
 
-$btnAutoLogin = New-Object System.Windows.Forms.Button; $btnAutoLogin.Text = "应用自动登录设置"; $btnAutoLogin.Location = New-Object System.Drawing.Point(12, 388); $btnAutoLogin.Size = New-Object System.Drawing.Size(150, 32); $btnAutoLogin.BackColor = [System.Drawing.Color]::FromArgb(0, 122, 204); $btnAutoLogin.ForeColor = [System.Drawing.Color]::White
+$btnAutoLogin = New-Object System.Windows.Forms.Button; $btnAutoLogin.Text = "应用自动登录设置"; $btnAutoLogin.Location = New-Object System.Drawing.Point(12, 420); $btnAutoLogin.Size = New-Object System.Drawing.Size(150, 32); $btnAutoLogin.BackColor = [System.Drawing.Color]::FromArgb(0, 122, 204); $btnAutoLogin.ForeColor = [System.Drawing.Color]::White
 
 # --- 其他操作 ---
 $grpOther = New-Object System.Windows.Forms.GroupBox
