@@ -55,11 +55,13 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
-    private EditText etPortal, etSsid, etUser, etPass, etService, etUpdateUrl;
+    private EditText etPortal, etSsid, etUser, etPass, etService;
     private Spinner spBand;
     private Button btnSave, btnAuth, btnConnect, btnCheckUpdate;
     private TextView tvLog;
     private ScrollView svLog;
+
+    private static final String UPDATE_URL = "https://raw.githubusercontent.com/jiangnanxiaomazha/CampusNetAuth/main/version.json";
 
     private SharedPreferences sp;
     private WifiManager wifiManager;
@@ -75,7 +77,6 @@ public class MainActivity extends AppCompatActivity {
         etUser = findViewById(R.id.etUser);
         etPass = findViewById(R.id.etPass);
         etService = findViewById(R.id.etService);
-        etUpdateUrl = findViewById(R.id.etUpdateUrl);
         spBand = findViewById(R.id.spBand);
         btnSave = findViewById(R.id.btnSave);
         btnAuth = findViewById(R.id.btnAuth);
@@ -120,7 +121,6 @@ public class MainActivity extends AppCompatActivity {
         etUser.setText(sp.getString("username", ""));
         etPass.setText(sp.getString("password", ""));
         etService.setText(sp.getString("service", "中国移动"));
-        etUpdateUrl.setText(sp.getString("updateUrl", ""));
         int bandIdx = sp.getInt("bandPref", 1); // 默认优先5GHz
         spBand.setSelection(Math.min(bandIdx, 4));
     }
@@ -132,7 +132,6 @@ public class MainActivity extends AppCompatActivity {
         e.putString("username", etUser.getText().toString().trim());
         e.putString("password", etPass.getText().toString());
         e.putString("service", etService.getText().toString().trim());
-        e.putString("updateUrl", etUpdateUrl.getText().toString().trim());
         e.putInt("bandPref", spBand.getSelectedItemPosition());
         e.apply();
     }
@@ -627,14 +626,9 @@ public class MainActivity extends AppCompatActivity {
 
     // ========== 检查更新 ==========
     private void checkUpdate() {
-        String updateUrl = etUpdateUrl.getText().toString().trim();
-        if (TextUtils.isEmpty(updateUrl)) {
-            appendLog("请先填写更新地址（version.json 的 URL）");
-            return;
-        }
         appendLog("正在检查更新...");
         try {
-            String json = httpGet(updateUrl, 10, true);
+            String json = httpGet(UPDATE_URL, 10, true);
             if (json == null) {
                 appendLog("检查更新失败：无法访问更新地址");
                 return;

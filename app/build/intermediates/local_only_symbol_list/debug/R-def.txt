@@ -15,7 +15,6 @@ id etPass
 id etPortal
 id etService
 id etSsid
-id etUpdateUrl
 id etUser
 id spBand
 id svLog

@@ -104,21 +104,6 @@
             android:hint="中国移动"
             android:layout_marginBottom="16dp" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            text="更新地址（version.json 的 URL，可选）"
-            android:textSize="14sp"
-            android:layout_marginBottom="4dp" />
-
-        <EditText
-            android:id="@+id/etUpdateUrl"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="https://xxx.com/version.json"
-            android:inputType="textUri"
-            android:layout_marginBottom="8dp" />
-
         <Button
             android:id="@+id/btnCheckUpdate"
             android:layout_width="match_parent"
