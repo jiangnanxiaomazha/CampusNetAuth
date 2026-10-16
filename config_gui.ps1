@@ -204,6 +204,7 @@ $UpdateUrl = "https://cdn.jsdelivr.net/gh/jiangnanxiaomazha/CampusNetAuth@main/v
 
 function Check-Update {
     Write-UI "正在检查更新..."
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     try {
         $json = Invoke-RestMethod -Uri $UpdateUrl -TimeoutSec 10 -UseBasicParsing
         $latest = [int]$json.versionCode
