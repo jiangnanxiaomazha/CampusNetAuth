@@ -117,9 +117,9 @@ function Save-CampusConfig {
     Write-UI "配置已保存：$configPath"
 
     # 注册开机自启（当前用户启动文件夹，无需管理员）
-    # 优先调用打包后的 campus_auth.exe（静默无窗口）；exe 不存在时回退 powershell
+    # 优先调用打包后的 校园网自动认证.exe（静默无窗口）；exe 不存在时回退 powershell
     try {
-        $exePath = Join-Path $scriptDir "campus_auth.exe"
+        $exePath = Join-Path $scriptDir "校园网自动认证.exe"
         $psPath  = Join-Path $scriptDir "campus_auth.ps1"
         if (Test-Path $exePath) {
             $inner = '"' + $exePath + '"'
