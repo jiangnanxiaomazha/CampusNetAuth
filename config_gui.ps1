@@ -206,12 +206,12 @@ if (Test-Path $VersionFile) {
     $script:LocalVersion = 1
 }
 $UpdateUrl = "https://gcore.jsdelivr.net/gh/jiangnanxiaomazha/CampusNetAuth@main/version.json"
-
 function Check-Update {
     Write-UI "正在检查更新..."
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     try {
-        $json = Invoke-RestMethod -Uri $UpdateUrl -TimeoutSec 10 -UseBasicParsing
+        $ts = Get-Date -Format "yyyyMMddHHmmss"
+        $json = Invoke-RestMethod -Uri ($UpdateUrl + "?t=" + $ts) -TimeoutSec 10 -UseBasicParsing
         $latest = [int]$json.versionCode
         Write-UI "当前版本：v$($script:LocalVersion)，最新版本：v$latest（$($json.versionName)）"
         if ($latest -le $script:LocalVersion) {
@@ -224,7 +224,7 @@ function Check-Update {
         $updated = 0
         foreach ($f in $json.files) {
             try {
-                $content = Invoke-WebRequest -Uri ($baseUrl + $f) -TimeoutSec 15 -UseBasicParsing
+                $content = Invoke-WebRequest -Uri ($baseUrl + $f + "?t=" + $ts) -TimeoutSec 15 -UseBasicParsing
                 Set-Content -Path (Join-Path $scriptDir $f) -Value $content.Content -Encoding UTF8 -NoNewline
                 Write-UI "已更新：$f"
                 $updated++
