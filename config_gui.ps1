@@ -33,6 +33,7 @@ $winlogon   = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
 # ================= 工具函数 =================
 function Write-UI {
     param([string]$Msg)
+    if (-not $txtLog) { return }
     $txtLog.AppendText(("[" + (Get-Date -Format 'HH:mm:ss') + "] " + $Msg + "`r`n"))
     $txtLog.SelectionStart = $txtLog.TextLength
     $txtLog.ScrollToCaret()
@@ -140,8 +141,22 @@ function Test-Auth {
     if (-not (Test-Path $psPath)) { Write-UI "缺少 campus_auth.ps1（请勿拆分文件夹）"; return }
     Write-UI "正在运行认证脚本（已在线时会提示无需认证）..."
     try {
-        $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $psPath 2>&1 | Out-String
-        $out -split "`n" | ForEach-Object { if ($_.Trim()) { Write-UI $_.Trim() } }
+        # 记录运行前日志行数
+        $logBefore = 0
+        if (Test-Path $logPath) { $logBefore = (Get-Content $logPath -Encoding UTF8 | Measure-Object -Line).Lines }
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $psPath 2>&1 | Out-Null
+        # 读取运行后新增的日志
+        if (Test-Path $logPath) {
+            $lines = Get-Content $logPath -Encoding UTF8
+            $newLines = $lines | Select-Object -Skip $logBefore
+            if ($newLines) {
+                $newLines | ForEach-Object { Write-UI $_ }
+            } else {
+                Write-UI "认证完成（无新增日志，可能已在线无需认证）"
+            }
+        } else {
+            Write-UI "认证完成"
+        }
     } catch {
         Write-UI "测试异常：$($_.Exception.Message)"
     }
@@ -248,7 +263,7 @@ function Check-Update-Silent {
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         $ts = Get-Date -Format "yyyyMMddHHmmss"
-        $json = Invoke-RestMethod -Uri ($UpdateUrl + "?t=" + $ts) -TimeoutSec 8 -UseBasicParsing
+        $json = Invoke-RestMethod -Uri ($UpdateUrl + "?t=" + $ts) -TimeoutSec 3 -UseBasicParsing
         $latest = [int]$json.versionCode
         return ($latest -gt $script:LocalVersion)
     } catch {
@@ -272,14 +287,14 @@ $grpCampus.Location = New-Object System.Drawing.Point(12, 8)
 $grpCampus.Size = New-Object System.Drawing.Size(580, 204)
 
 $lblPortal = New-Object System.Windows.Forms.Label; $lblPortal.Text = "登录网址："; $lblPortal.Location = New-Object System.Drawing.Point(15, 30)
-$txtPortal = New-Object System.Windows.Forms.TextBox; $txtPortal.Text = ""; $txtPortal.Location = New-Object System.Drawing.Point(110, 26); $txtPortal.Size = New-Object System.Drawing.Size(440, 23); $txtPortal.PlaceholderText = "请填写本校登录网址（如 http://10.x.x.x）"
+$txtPortal = New-Object System.Windows.Forms.TextBox; $txtPortal.Text = ""; $txtPortal.Location = New-Object System.Drawing.Point(110, 26); $txtPortal.Size = New-Object System.Drawing.Size(440, 23)
 
 $lblSsid = New-Object System.Windows.Forms.Label; $lblSsid.Text = "WiFi名称："; $lblSsid.Location = New-Object System.Drawing.Point(15, 66)
-$txtSsid = New-Object System.Windows.Forms.TextBox; $txtSsid.Text = ""; $txtSsid.Location = New-Object System.Drawing.Point(110, 62); $txtSsid.Size = New-Object System.Drawing.Size(160, 23); $txtSsid.PlaceholderText = "校园网WiFi名称"
+$txtSsid = New-Object System.Windows.Forms.TextBox; $txtSsid.Text = ""; $txtSsid.Location = New-Object System.Drawing.Point(110, 62); $txtSsid.Size = New-Object System.Drawing.Size(160, 23)
 
 $lblOff = New-Object System.Windows.Forms.Label; $lblOff.Text = "不可用时段："; $lblOff.Location = New-Object System.Drawing.Point(285, 66); $lblOff.Size = New-Object System.Drawing.Size(82, 23)
-$txtOff = New-Object System.Windows.Forms.TextBox; $txtOff.Text = "0-6"; $txtOff.Location = New-Object System.Drawing.Point(367, 62); $txtOff.Size = New-Object System.Drawing.Size(72, 23); $txtOff.ToolTipText = "校园网无法使用的时段，格式：【开始-结束】（如 0-6 表示 0:00-6:00），留空表示不限制"
-$chkOff = New-Object System.Windows.Forms.CheckBox; $chkOff.Text = "仅工作日"; $chkOff.Location = New-Object System.Drawing.Point(448, 64); $chkOff.Size = New-Object System.Drawing.Size(80, 26); $chkOff.Checked = $true; $chkOff.ToolTipText = "按国务院法定节假日安排计算：正常周末和法定节假日不生效，调休上班日视为工作日"
+$txtOff = New-Object System.Windows.Forms.TextBox; $txtOff.Text = "0-6"; $txtOff.Location = New-Object System.Drawing.Point(367, 62); $txtOff.Size = New-Object System.Drawing.Size(72, 23)
+$chkOff = New-Object System.Windows.Forms.CheckBox; $chkOff.Text = "仅工作日"; $chkOff.Location = New-Object System.Drawing.Point(448, 64); $chkOff.Size = New-Object System.Drawing.Size(80, 26); $chkOff.Checked = $true
 
 $lblUser = New-Object System.Windows.Forms.Label; $lblUser.Text = "校园网账号："; $lblUser.Location = New-Object System.Drawing.Point(15, 102)
 $txtUser = New-Object System.Windows.Forms.TextBox; $txtUser.Location = New-Object System.Drawing.Point(110, 98); $txtUser.Size = New-Object System.Drawing.Size(160, 23)
@@ -288,7 +303,6 @@ $lblService = New-Object System.Windows.Forms.Label; $lblService.Text = "运营�
 $cboService = New-Object System.Windows.Forms.ComboBox; $cboService.Location = New-Object System.Drawing.Point(340, 98); $cboService.Size = New-Object System.Drawing.Size(130, 23); $cboService.DropDownStyle = "DropDown"
 [void]$cboService.Items.AddRange(@("校园内网", "中国移动", "中国联通", "中国电信"))
 $cboService.SelectedItem = "中国移动"
-$cboService.ToolTipText = "可从下拉选择，也可手动输入本校运营商名称"
 
 $lblPass = New-Object System.Windows.Forms.Label; $lblPass.Text = "校园网密码："; $lblPass.Location = New-Object System.Drawing.Point(15, 138)
 $txtPass = New-Object System.Windows.Forms.TextBox; $txtPass.Location = New-Object System.Drawing.Point(110, 134); $txtPass.Size = New-Object System.Drawing.Size(160, 23); $txtPass.PasswordChar = "*"
@@ -298,7 +312,6 @@ $lblBand = New-Object System.Windows.Forms.Label; $lblBand.Text = "优先频段�
 $cboBand = New-Object System.Windows.Forms.ComboBox; $cboBand.Location = New-Object System.Drawing.Point(110, 170); $cboBand.Size = New-Object System.Drawing.Size(160, 23); $cboBand.DropDownStyle = "DropDownList"
 [void]$cboBand.Items.AddRange(@("自动（系统选择）", "优先 5GHz", "仅 5GHz", "优先 2.4GHz", "仅 2.4GHz"))
 $cboBand.SelectedIndex = 1
-$cboBand.ToolTipText = "连接校园网时优先选择的WiFi频段"
 
 $grpCampus.Controls.AddRange(@($lblPortal,$txtPortal,$lblSsid,$txtSsid,$lblOff,$txtOff,$chkOff,$lblUser,$txtUser,$lblService,$cboService,$lblPass,$txtPass,$lblPassState,$lblBand,$cboBand))
 
@@ -369,9 +382,11 @@ Write-UI "1. 填写校园网配置后点击【保存校园网配置】"
 Write-UI "2. 需要开机免输密码就勾选上方选项并点击【应用自动登录设置】（首次需点一次【是】）"
 
 $form.Add_Shown({
-    # 启动时静默检查更新，有新版本显示红点
-    $hasUpdate = Check-Update-Silent
-    if ($hasUpdate) { $lblUpdateDot.Visible = $true }
+    # 启动时静默检查更新（3秒超时，避免长时间卡顿）
+    try {
+        $hasUpdate = Check-Update-Silent
+        if ($hasUpdate -and $lblUpdateDot) { $lblUpdateDot.Visible = $true }
+    } catch { }
 })
 
 if ($SmokeTest) {

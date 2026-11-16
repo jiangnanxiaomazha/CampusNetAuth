@@ -46,7 +46,6 @@ if (-not $scriptDir) { $scriptDir = (Get-Location).Path }
 
 if (-not $ConfigPath) { $ConfigPath = Join-Path $scriptDir "config.json" }
 if (-not (Test-Path $ConfigPath)) {
-    Write-Host "[错误] 未找到配置文件: $ConfigPath（请先打开 校园网自动认证配置工具.exe 完成配置）" -ForegroundColor Red
     exit 2
 }
 $cfg = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -64,11 +63,18 @@ $offHours     = if ($null -ne $cfg.offHours) { [string]$cfg.offHours } else { ""
 $offDays      = if ($null -ne $cfg.offDays)  { [string]$cfg.offDays }  else { "" }
 $ua           = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 
+# 日志轮转：超过 2MB 只保留最近 1000 行，防止高频运行撑爆磁盘
+try {
+    if ((Test-Path -LiteralPath $logFile) -and (Get-Item -LiteralPath $logFile).Length -gt 2MB) {
+        $keep = Get-Content -LiteralPath $logFile -Encoding UTF8 -Tail 1000
+        [System.IO.File]::WriteAllLines($logFile, $keep, (New-Object System.Text.UTF8Encoding($false)))
+    }
+} catch { }
+
 # ---------- 工具函数 ----------
 function Write-Log {
     param([string]$Msg)
     $line = "{0}  {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Msg
-    if (-not $Quiet) { Write-Output $line }
     try {
         $dir = Split-Path $logFile -Parent
         if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
@@ -96,6 +102,16 @@ function Get-PlainPassword {
 
 # 获取当前活动网络连接名称（无线连接时即 WiFi 的 SSID）
 function Get-CurrentSsid {
+    # 优先读 WLAN 关联状态：只要 WiFi 已关联（哪怕还没拿到 IP、还没认证），就算"连着网"，
+    # 避免刚连上其他 WiFi/热点、DHCP 尚未完成时被误判为"完全没网"从而去抢网
+    try {
+        $wlan = Invoke-NetshUtf8 wlan show interfaces
+        if ($wlan -match "(?m)^\s*SSID\s*:\s*(.+)$") {
+            $s = $Matches[1].Trim()
+            if ($s) { return $s }
+        }
+    } catch { }
+    # 回退：有线或其他连接（按 IP 连通性判断）
     try {
         $prof = Get-NetConnectionProfile -ErrorAction SilentlyContinue |
             Where-Object { $_.IPv4Connectivity -and $_.IPv4Connectivity -ne "Disconnected" } |
@@ -326,7 +342,7 @@ function Connect-TargetWifi {
 function Get-PortalState {
     try {
         $tmp = Join-Path $env:TEMP ("campus_st_" + [guid]::NewGuid().ToString("N") + ".tmp")
-        & curl.exe -s -L -i -m 12 -A $ua -o $tmp "$portalUrl/" 2>$null
+        & curl.exe -s -L -i -m 6 -A $ua -o $tmp "$portalUrl/" 2>$null
         $code = $LASTEXITCODE
         $raw = ""
         if (Test-Path $tmp) { $raw = Get-Content $tmp -Raw -Encoding Default }
@@ -390,7 +406,7 @@ function Get-FreshQueryString {
         # 未认证时访问门户根路径，跟随完整重定向链，从 302 Location 中找 index.jsp?<参数>
         # （未认证时第一次 302 可能是 redirectortosuccess，跟随后才到 index.jsp）
         $tmp = Join-Path $env:TEMP ("campus_qs_" + [guid]::NewGuid().ToString("N") + ".tmp")
-        & curl.exe -s -L -i -m 12 -A $ua -o $tmp "$portalUrl/" 2>$null
+        & curl.exe -s -L -i -m 6 -A $ua -o $tmp "$portalUrl/" 2>$null
         $raw = ""
         if (Test-Path $tmp) { $raw = Get-Content $tmp -Raw -Encoding Default }
         Remove-Item $tmp -Force -ErrorAction SilentlyContinue
@@ -449,7 +465,7 @@ function Invoke-Login {
 function Test-Internet {
     try {
         $tmp = Join-Path $env:TEMP ("campus_net_" + [guid]::NewGuid().ToString("N") + ".tmp")
-        $code = & curl.exe -s -m 8 -o $tmp -w "%{http_code}" "http://www.baidu.com" 2>$null
+        $code = & curl.exe -s -m 4 -o $tmp -w "%{http_code}" "http://www.baidu.com" 2>$null
         $size = 0
         if (Test-Path $tmp) { $size = (Get-Item $tmp).Length; Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
         $ok = ($code -match "200|301|302|304" -and $size -gt 0)
@@ -471,12 +487,16 @@ function Wait-ForNetwork {
         }
         $st = Get-PortalState
         if ($st -ne "unreachable") { return $st }
-        Start-Sleep -Seconds 6
+        Start-Sleep -Seconds 2
     }
     return "unreachable"
 }
 
 # ---------- 主流程 ----------
+# 单实例互斥：常驻监控与计划任务可能同时触发，避免并发重复认证
+$mutex = New-Object System.Threading.Mutex($false, "Local\CampusNetAuthMutex")
+if (-not $mutex.WaitOne(0)) { exit 0 }
+
 Write-Log "===== 校园网自动认证开始 ====="
 Write-Log "目标 WiFi：$expectSsid  运营商：$(if ($service) { $service } else { '未指定' })"
 
@@ -505,15 +525,13 @@ if ($cur -and (Test-TargetWifi $cur)) {
     if ($bandInfo) { Write-Log "已连接目标 WiFi '$cur'（实际频段：$bandInfo）。" }
     else { Write-Log "已连接目标 WiFi '$cur'。" }
 } else {
-    # 未连接目标 WiFi：检查当前是否已有可用网络
-    $conn = Get-NetConnectionProfile -ErrorAction SilentlyContinue |
-        Where-Object { $_.IPv4Connectivity -and $_.IPv4Connectivity -ne "Disconnected" } |
-        Select-Object -First 1
-    if ($conn -and $conn.IPv4Connectivity -eq "Internet") {
-        Write-Log "已连接网络 '$($conn.Name)'，当前可正常上网，无需操作（不抢网）。"
+    # 未连接目标 WiFi：只要当前连着任何网络，就不抢网（用户原则：有网绝不抢）
+    if ($cur) {
+        Write-Log "当前已连接其他网络 '$cur'，不抢网，直接退出。"
         exit 0
     }
-    # 没有可用网络（或当前连接无法上网）→ 尝试自动连接目标 WiFi
+    # 当前完全没连任何 WiFi → 尝试连接校园网
+    Write-Log "当前未连接任何网络，将尝试连接校园网。"
     if (Test-OffHours) {
         $hint = if ($offDays -eq "12345") { "（仅工作日）" } else { "" }
         Write-Log "当前处于校园网不可用时段 $offHours $hint，本次不采取任何操作。"
@@ -523,11 +541,15 @@ if ($cur -and (Test-TargetWifi $cur)) {
     $scanWait = 30
     $found = $false
     for ($i = 1; $i -le $maxScan; $i++) {
-        if ($cur) { Write-Log "第 $i 次尝试：当前连接 '$cur' 无法上网，正在尝试自动连接 '$expectSsid'..." }
-        else      { Write-Log "第 $i 次尝试：当前未连接任何网络，正在尝试自动连接 '$expectSsid'..." }
+        Write-Log "第 $i 次尝试：正在自动连接 '$expectSsid'..."
         if (Connect-TargetWifi) {
-            Start-Sleep -Seconds 10
-            $cur2 = Get-CurrentSsid
+            # 轮询等待关联完成（最多10秒，通常2-3秒即可），尽早进入认证，减少系统弹"需要登录"的窗口期
+            $cur2 = ""
+            for ($w = 1; $w -le 10; $w++) {
+                Start-Sleep -Seconds 1
+                $cur2 = Get-CurrentSsid
+                if (Test-TargetWifi $cur2) { break }
+            }
             if (Test-TargetWifi $cur2) {
                 Write-Log "已自动连接到目标 WiFi '$cur2'。"
                 $found = $true
@@ -537,6 +559,10 @@ if ($cur -and (Test-TargetWifi $cur)) {
         }
         if ($i -lt $maxScan) { Write-Log "$scanWait 秒后重试..."; Start-Sleep -Seconds $scanWait }
         $cur = Get-CurrentSsid
+        if ($cur -and -not (Test-TargetWifi $cur)) {
+            Write-Log "等待期间已连接其他网络 '$cur'，不再抢网，退出。"
+            exit 0
+        }
     }
     if (-not $found) {
         Write-Log "未能连接到目标 WiFi '$expectSsid'（共尝试 $maxScan 次），本次不采取任何操作。"
@@ -608,14 +634,19 @@ for ($i = 1; $i -le $retryTimes; $i++) {
 }
 
 if ($ok) {
-    Start-Sleep -Seconds 3
-    # 验证前确认仍连接目标 WiFi
-    $cur = Get-CurrentSsid
-    if (-not (Test-TargetWifi $cur)) {
-        Write-Log "验证前检测到连接已切换为 '$cur'，本次结束。"
-        exit 0
+    # 轮询确认在线状态（最多5秒），通常1-2秒即确认，避免固定死等
+    $final = ""
+    for ($v = 1; $v -le 5; $v++) {
+        Start-Sleep -Seconds 1
+        # 验证前确认仍连接目标 WiFi
+        $cur = Get-CurrentSsid
+        if (-not (Test-TargetWifi $cur)) {
+            Write-Log "验证前检测到连接已切换为 '$cur'，本次结束。"
+            exit 0
+        }
+        $final = Get-PortalState
+        if ($final -eq "online") { break }
     }
-    $final = Get-PortalState
     if ($final -eq "online") {
         Write-Log "验证通过：校园网认证成功，已恢复上网。"
         $actualOp = Get-ActualOperator

@@ -1,6 +1,11 @@
 {
-    "versionCode": 10,
-    "versionName": "1.9",
-    "changelog": "后台程序改回英文名默认图标",
-    "files": ["campus_auth.ps1", "config_gui.ps1", "campus_auth.exe", "校园网自动认证配置工具.exe"]
+    "changelog":  "修复启动时弹出的脚本错误框；认证提速：WiFi 连上立即认证、30 秒轮询；连着其他网络或热点时一律不抢网",
+    "files":  [
+                  "campus_auth.ps1",
+                  "config_gui.ps1",
+                  "campus_auth.exe",
+                  "校园网自动认证配置工具.exe"
+              ],
+    "versionCode":  17,
+    "versionName":  "3.1"
 }
