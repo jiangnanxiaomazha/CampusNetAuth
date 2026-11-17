@@ -236,24 +236,68 @@ function Check-Update {
         }
         Write-UI "发现新版本！更新内容：$($json.changelog)"
         Write-UI "开始下载更新文件..."
+
+        $updDir = Join-Path $scriptDir "_update"
+        if (Test-Path -LiteralPath $updDir) { Remove-Item -LiteralPath $updDir -Recurse -Force -ErrorAction SilentlyContinue }
+        New-Item -ItemType Directory -Path $updDir -Force | Out-Null
+
         $baseUrl = "https://fastly.jsdelivr.net/gh/jiangnanxiaomazha/CampusNetAuth@main/"
         $updated = 0
+        $failed = 0
         foreach ($f in $json.files) {
             try {
-                $content = Invoke-WebRequest -Uri ($baseUrl + $f + "?t=" + $ts) -TimeoutSec 15 -UseBasicParsing
-                Set-Content -Path (Join-Path $scriptDir $f) -Value $content.Content -Encoding UTF8 -NoNewline
-                Write-UI "已更新：$f"
+                $dest = Join-Path $updDir $f
+                $url = $baseUrl + [uri]::EscapeDataString($f) + "?t=" + $ts
+                (New-Object System.Net.WebClient).DownloadFile($url, $dest)
+                $size = (Get-Item -LiteralPath $dest).Length
+                if ($size -lt 1) { throw "文件为空" }
+                Write-UI ("已下载：{0}（{1} KB）" -f $f, [math]::Round($size / 1KB, 1))
                 $updated++
             } catch {
+                $failed++
                 Write-UI "下载失败：$f - $($_.Exception.Message)"
             }
         }
-        if ($updated -gt 0) {
-            $script:LocalVersion = $latest
-            Set-Content -Path $VersionFile -Value $latest -Encoding UTF8 -NoNewline
-            Write-UI "更新完成（$updated 个文件），请重启配置工具以生效"
-            [System.Windows.Forms.MessageBox]::Show("更新完成，请重启配置工具以生效。", "更新成功", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+
+        if ($failed -gt 0) {
+            Write-UI "有 $failed 个文件下载失败，本次更新已取消，现有文件未被改动"
+            Remove-Item -LiteralPath $updDir -Recurse -Force -ErrorAction SilentlyContinue
+            return
         }
+        if ($updated -eq 0) { Write-UI "没有可更新的文件"; return }
+
+        $template = @'
+$ErrorActionPreference = "SilentlyContinue"
+Start-Sleep -Seconds 4
+$root = "__ROOT__"
+$upd = Join-Path $root "_update"
+$ver = "__VER__"
+for ($i = 0; $i -lt 30; $i++) {
+    $allOk = $true
+    Get-ChildItem -LiteralPath $upd -Filter "*.exe" -File | ForEach-Object {
+        try {
+            Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $root $_.Name) -Force -ErrorAction Stop
+        } catch { $allOk = $false }
+    }
+    Get-ChildItem -LiteralPath $upd -Filter "*.ps1" -File | Where-Object { $_.Name -ne "apply_update.ps1" } | ForEach-Object {
+        Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $root $_.Name) -Force -ErrorAction SilentlyContinue
+    }
+    if ($allOk) { break }
+    Start-Sleep -Seconds 1
+}
+Set-Content -LiteralPath (Join-Path $root "version.txt") -Value $ver -Encoding UTF8 -NoNewline
+Remove-Item -LiteralPath $upd -Recurse -Force -ErrorAction SilentlyContinue
+$exe = Join-Path $root "校园网自动认证配置工具.exe"
+if (Test-Path -LiteralPath $exe) { Start-Process -FilePath $exe } else { Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $root "config_gui.ps1")) -WindowStyle Hidden }
+'@
+        $applyBody = $template.Replace("__ROOT__", $scriptDir).Replace("__VER__", [string]$latest)
+        $apply = Join-Path $updDir "apply_update.ps1"
+        [System.IO.File]::WriteAllText($apply, $applyBody, (New-Object System.Text.UTF8Encoding($false)))
+
+        Write-UI "更新文件已下载完成，即将自动替换并重启"
+        [System.Windows.Forms.MessageBox]::Show("更新已准备好。点击确定后工具会关闭，约 5 秒后自动完成替换并重新打开。", "更新就绪", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", $apply) -WindowStyle Hidden
+        $form.Close()
     } catch {
         Write-UI "检查更新失败：$($_.Exception.Message)"
     }

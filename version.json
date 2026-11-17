@@ -1,11 +1,6 @@
 {
-    "changelog":  "修复启动时弹出的脚本错误框；认证提速：WiFi 连上立即认证、30 秒轮询；连着其他网络或热点时一律不抢网",
-    "files":  [
-                  "campus_auth.ps1",
-                  "config_gui.ps1",
-                  "campus_auth.exe",
-                  "校园网自动认证配置工具.exe"
-              ],
-    "versionCode":  17,
-    "versionName":  "3.1"
+    "versionCode": 18,
+    "versionName": "3.2",
+    "changelog": "修复检查更新：改为二进制下载并自动替换后重启，不再损坏程序文件",
+    "files": ["campus_auth.ps1", "config_gui.ps1", "campus_auth.exe", "校园网自动认证配置工具.exe"]
 }
